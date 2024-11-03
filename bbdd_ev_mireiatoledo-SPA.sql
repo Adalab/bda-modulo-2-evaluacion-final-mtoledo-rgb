@@ -67,7 +67,7 @@ SELECT COUNT(*) AS total_per_category,c.category_id, c.name
 	FROM category AS c 
 		JOIN film_category 
 			AS fc ON fc.category_id = c.category_id
-	GROUP BY c.category_id
+	GROUP BY c.category_id;
 
 -- ** consulta de control: total películas alquiladas
 SELECT COUNT(r.rental_id) as total_rentals, i.film_id
@@ -182,6 +182,8 @@ SELECT title
 	FROM film
 	WHERE rating = 'R' AND length > 120
 		ORDER BY length;
+        /* la clausula AND determina que la consulta solo nos devolverá los títulos de películas cuya clasificación y duración
+        coincidan con los requisitos detallados.*/
 
 -- 20. Encuentra las categorías de películas que tienen un promedio de duración superior a 120 minutos y muestra el nombre de la categoría junto con el promedio de duración.
 SELECT fc.category_id,c.name, ROUND(AVG(f.length)) AS avg_length
@@ -206,18 +208,22 @@ SELECT a.first_name, a.last_name , COUNT(f.film_id) AS total_films_per_actor
 	ORDER BY COUNT(f.film_id);
 
 -- 22. Encuentra el título de todas las películas que fueron alquiladas por más de 5 días. Utiliza una subconsulta para encontrar los rental_ids con una duración superior a 5 días y luego selecciona las películas correspondientes.
--- rental_id con alquileres de una duración superior a 5 días
-SELECT rental_id, DATEDIFF(return_date,rental_date) AS rental_duration
-FROM rental
-WHERE DATEDIFF(return_date,rental_date) > 5;
 
--- consulta de relación para el resto de datos
+-- **consulta de control: rental_id con alquileres de una duración superior a 5 días
+SELECT rental_id, 
+		DATEDIFF(return_date,rental_date) AS rental_duration -- DATEDIFF es una función que permite cuantificar la diferencia que hay entre dos fechas, por defecto contará los días, a no ser que se le indiquen parámetros concretos. 
+	FROM rental
+	WHERE DATEDIFF(return_date,rental_date) > 5;
+
+-- **consulta de control: consulta de relación para el resto de datos
 SELECT f.title
-FROM film AS f
-JOIN inventory AS i USING(film_id)
-JOIN rental AS r USING (inventory_id);
+	FROM film AS f
+		JOIN inventory AS i 
+			USING(film_id)
+		JOIN rental AS r 
+			USING (inventory_id);
 
--- consulta completa
+-- RESULTADO COMPLETO
 SELECT f.title,r.rental_id, DATEDIFF(r.return_date,r.rental_date) AS rental_duration
 	FROM film AS f
 		JOIN inventory AS i 
@@ -229,9 +235,12 @@ SELECT f.title,r.rental_id, DATEDIFF(r.return_date,r.rental_date) AS rental_dura
 						FROM rental
 						WHERE DATEDIFF(return_date,rental_date) > 5)
 	ORDER BY rental_duration ASC;
+/* esta consulta nos devolverá los títulos de las películas cuya tiempo de alquiler sea superior a 5 días, utilizando la función DATEDIFF 
+para obtener la diferencia de días entre dos fechas, varios JOINs para comunicarnos entre varias tablas y una subconsulta en la clausula WHERE que cumpla 
+con las condiciones que deben cumplir las películas antes de ser devueltas entre los resultados. */
 
 -- 23. Encuentra el nombre y apellido de los actores que no han actuado en ninguna película de la categoría "Horror". Utiliza una subconsulta para encontrar los actores que han actuado en películas de la categoría "Horror" y luego exclúyelos de la lista de actores.
--- Consultamos qué actores han estado trabajando en películas dentro de la categoría Horror
+-- **consulta de control: actores que han trabajado en una película de 'horror'
 SELECT a.actor_id
 FROM actor AS a
 JOIN film_actor AS fa USING (actor_id)
@@ -239,7 +248,7 @@ JOIN film_category AS fc USING (film_id)
 JOIN category AS c USING (category_id)
 WHERE c.name = 'Horror';
 
--- Desarrollamos la consulta que será 
+-- RESULTADO FINAL
 SELECT a.first_name, a.last_name, c.name AS category
 	FROM actor AS a
 		JOIN film_actor AS fa
@@ -250,9 +259,8 @@ SELECT a.first_name, a.last_name, c.name AS category
 			USING (category_id)
 	WHERE a.actor_id NOT IN (SELECT a.actor_id
 							FROM actor
-							WHERE c.name = 'Horror')
-                            
-	ORDER BY category;
+							WHERE c.name = 'Horror');
+-- aquí la subconsulta desarrolla el filtro que queremos que cumpla para que, mediante la clausula NOT IN nos devuelva justo lo contrario a lo que la subconsulta pide. 
 
 -- 24. BONUS: Encuentra el título de las películas que son comedias y tienen una duración mayor a 180 minutos en la tabla film.
 SELECT f.title
@@ -266,8 +274,55 @@ SELECT f.title
 
 
 -- 25. BONUS: Encuentra todos los actores que han actuado juntos en al menos una película. La consulta debe mostrar el nombre y apellido de los actores y el número de películas en las que han actuado juntos.
+                        
+-- **consulta de control: actores que han trabajado en la misma película
+SELECT  FA1.actor_id AS actor1_id, 
+		FA2.actor_id AS actor2_id, 
+		FA1.film_id
+	FROM film_actor AS FA1
+		JOIN film_actor AS FA2 
+			ON FA1.film_id = FA2.film_id 
+            AND FA1.actor_id < FA2.actor_id;
+-- realizamos una consulta de control para acceder a los datos que se van a realicionar directamente: actor_id y film_id
+
+-- **consulta de control: CTE nombres y apellidos
+SELECT  a1.first_name AS actor1_name, 
+		a1.last_name AS actor1_last, 
+		a2.first_name AS actor2_name, 
+        a2.last_name AS actor2_last
+	FROM actor as a1 
+	JOIN actor as a2 
+		ON a1.actor_id <> actor_id; 
+/* diseñamos la que será la CTE que servirá de base para aplicar las condiciones que deben tener los resultados, es decir, crear pares de "actor_id" distintos 
+que aparezcan participando en un mismo "film_id"*/
+
+-- RESULTADO FINAL -- !! IMPORTANTE: LA CONSULTA NO SIEMPRE SE EJECUTA, PERO SE HA COMPRADO SU FUNCIONAMIENTO CON OTRAS HERRAMIENTAS 
+WITH actor_pairs 
+			AS (SELECT FA1.actor_id AS actor1_id, FA2.actor_id AS actor2_id, FA1.film_id
+			FROM film_actor AS FA1
+			JOIN film_actor AS FA2 ON FA1.film_id = FA2.film_id AND FA1.actor_id < FA2.actor_id)
+	SELECT  a1.first_name AS actor1_name, 
+		a1.last_name AS actor1_last, 
+        a2.first_name AS actor2_name, 
+        a2.last_name AS actor2_last, 
+        f.title AS film_tilte
+		FROM actor_pairs 
+			JOIN actor AS a1 
+				ON actor_pairs.actor1_id = actor1_id
+			JOIN actor AS a2 
+				ON actor_pairs.actor2_id = actor2_id
+			JOIN film AS f 
+				ON actor_pairs.film_id = f.film_id;        
+		/* PASOS:
+        - Creamos los pares de actores con diferente id que hayan participado en la misma película -- CTE
+        - Creamos la consulta con los datos que queremos que contenga la tabla: nombres y apellidos de cada actor que ha participado en la película, y título de la película -- SELECT
+        - Especificamos que queremos que busque entre los pares de actores que nos devuelve la CTE -- FROM
+        - Hacemos las uniones necesarias para acceder a todos los datos que queremos que aparezcan -- JOINs*/
+    
+
+/* BONUS DE MIREIA TOLEDO MOYA - ANALISTA DE DATOS EN PROCESO:
 -- CTE = ¿está en el actor en la película?
--- se pueden hacer dos líneas de con los mismos datos diferenciándolos, usa una cte para una de las comparaciones, así solo hay un join, el truco está en que 1 sea dedi
+-- se pueden hacer dos líneas de con los mismos datos diferenciándolos, usa una cte para una de las comparaciones, así solo hay un join, el truco está en que 1 sea 
 -- CTE = actor_a
 SELECT a1.first_name AS firts_name_a, a1.last_name AS last_name_a
 FROM actor;
@@ -283,32 +338,6 @@ SELECT actor_id, film_id
 FROM film_actor AS A1
 WHERE A1.actor_id = ALL (SELECT A2.actor_id
 						FROM film_actor AS A2
-                        WHERE A1.film_id = A2.film_id);
-                        
--- CTE actores que han trabajado en la misma película
-SELECT FA1.actor_id AS actor1_id, FA2.actor_id AS actor2_id, FA1.film_id
-FROM film_actor AS FA1
-JOIN film_actor AS FA2 ON FA1.film_id = FA2.film_id AND FA1.actor_id < FA2.actor_id;
-
-
-
--- CTE nombres y apellidos
-SELECT a1.first_name AS actor1_name, a1.last_name AS actor1_last, a2.first_name AS actor2_name, a2.last_name AS actor2_last
-FROM actor as a1 
-JOIN actor as a2 ON a1.actor_id <> actor_id; 
-
--- prueba consulta total
-WITH actor_pairs 
-			AS (SELECT FA1.actor_id AS actor1_id, FA2.actor_id AS actor2_id, FA1.film_id
-			FROM film_actor AS FA1
-			JOIN film_actor AS FA2 ON FA1.film_id = FA2.film_id AND FA1.actor_id < FA2.actor_id)
-SELECT a1.first_name AS actor1_name, a1.last_name AS actor1_last, a2.first_name AS actor2_name, a2.last_name AS actor2_last, f.title AS film_tilte
-FROM actor_pairs 
-JOIN actor AS a1 ON actor_pairs.actor1_id = actor1_id
-JOIN actor AS a2 ON actor_pairs.actor2_id = actor2_id
-JOIN film AS f ON actor_pairs.film_id = f.film_id;        
-		
-    
-
+                        WHERE A1.film_id = A2.film_id); */
 
 
