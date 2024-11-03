@@ -228,3 +228,61 @@ SELECT a.first_name, a.last_name, c.name AS category
                             
 	ORDER BY category;
 
+-- 24. BONUS: Encuentra el título de las películas que son comedias y tienen una duración mayor a 180 minutos en la tabla film.
+SELECT f.title
+	FROM film AS f
+		JOIN film_category AS fc 
+			USING (film_id)
+		JOIN category AS c 
+			USING (category_id) 
+	WHERE c.name = 'Comedy' AND length > 180
+	ORDER BY f.length;
+
+
+-- 25. BONUS: Encuentra todos los actores que han actuado juntos en al menos una película. La consulta debe mostrar el nombre y apellido de los actores y el número de películas en las que han actuado juntos.
+-- CTE = ¿está en el actor en la película?
+-- se pueden hacer dos líneas de con los mismos datos diferenciándolos, usa una cte para una de las comparaciones, así solo hay un join, el truco está en que 1 sea dedi
+-- CTE = actor_a
+SELECT a1.first_name AS firts_name_a, a1.last_name AS last_name_a
+FROM actor;
+
+SELECT a2.first_name AS first_name_b, a2.last_name AS last_name_b, f.title
+FROM film
+JOIN film_actor AS fa USING(actor_id)
+WHERE actor_id IN (SELECT film_id
+					FROM film);
+
+-- que el actor 1 y el actor 2 hayan participado en la misma película 
+SELECT actor_id, film_id
+FROM film_actor AS A1
+WHERE A1.actor_id = ALL (SELECT A2.actor_id
+						FROM film_actor AS A2
+                        WHERE A1.film_id = A2.film_id);
+                        
+-- CTE actores que han trabajado en la misma película
+SELECT FA1.actor_id AS actor1_id, FA2.actor_id AS actor2_id, FA1.film_id
+FROM film_actor AS FA1
+JOIN film_actor AS FA2 ON FA1.film_id = FA2.film_id AND FA1.actor_id < FA2.actor_id;
+
+
+
+-- CTE nombres y apellidos
+SELECT a1.first_name AS actor1_name, a1.last_name AS actor1_last, a2.first_name AS actor2_name, a2.last_name AS actor2_last
+FROM actor as a1 
+JOIN actor as a2 ON a1.actor_id <> actor_id; 
+
+-- prueba consulta total
+WITH actor_pairs 
+			AS (SELECT FA1.actor_id AS actor1_id, FA2.actor_id AS actor2_id, FA1.film_id
+			FROM film_actor AS FA1
+			JOIN film_actor AS FA2 ON FA1.film_id = FA2.film_id AND FA1.actor_id < FA2.actor_id)
+SELECT a1.first_name AS actor1_name, a1.last_name AS actor1_last, a2.first_name AS actor2_name, a2.last_name AS actor2_last, f.title AS film_tilte
+FROM actor_pairs 
+JOIN actor AS a1 ON actor_pairs.actor1_id = actor1_id
+JOIN actor AS a2 ON actor_pairs.actor2_id = actor2_id
+JOIN film AS f ON actor_pairs.film_id = f.film_id;        
+		
+    
+
+
+
